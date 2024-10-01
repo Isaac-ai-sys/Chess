@@ -10,7 +10,66 @@ from time import sleep
 from pyglet import * # type: ignore
 from pyglet.gl import * # type: ignore
 
-import pyglet # type: ignore
+from pyglet.gl import GL_QUADS
+
+class Button:
+    def __init__(self, x, y, width, height, color, text):
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.color = color
+        self.default_color = color
+        self.pressed_color = (255, 255, 0)  # Yellow color for pressed state
+        self.message = text
+        self.text = pyglet.text.Label(text,
+                                      font_name='Arial',
+                                      font_size=14,
+                                      x=x + width // 2,
+                                      y=y + height // 2,
+                                      anchor_x='center',
+                                      anchor_y='center')
+        self.text.color = (255, 255, 255, 255)  # Default text color (white)
+        self.pressed = False
+        self.enlarged = False
+
+    def is_mouse_over(self, x, y):
+        if(self.x <= x <= self.x + self.width and
+                self.y <= y <= self.y + self.height):
+            self.enlarged = True
+            return True
+        else:
+            if(self.enlarged == True):
+                self.enlarged = False
+            return False
+    
+    def on_press(self):
+        self.pressed = True
+        self.text.color = (255, 255, 0, 255)  # Change text color to yellow
+
+    def on_release(self):
+        self.pressed = False
+        self.text.color = (255, 255, 255, 255)  # Change text color back to white
+
+    def draw(self):
+        if(self.pressed == True and self.enlarged == False):
+            square = pyglet.shapes.Rectangle(self.x, self.y, self.width, self.height, color=self.pressed_color)
+        elif(self.pressed == True and self.enlarged == True):
+            square = pyglet.shapes.Rectangle(self.x-30, self.y-20, self.width+60, self.height+40, color=self.pressed_color)
+        elif(self.pressed == False and self.enlarged == True):
+            square = pyglet.shapes.Rectangle(self.x-30, self.y-20, self.width+60, self.height+40, color=self.default_color)
+        else:
+            square = pyglet.shapes.Rectangle(self.x, self.y, self.width, self.height, color=self.default_color)
+        square.opacity = int(0.5 * 255)
+        square.draw()
+        glEnable(GL_BLEND) # type: ignore
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+        self.text.x = self.x + self.width // 2
+        self.text.y = self.y + self.height // 2
+        self.text.draw()
+        glEnable(GL_BLEND) # type: ignore
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+
 
 # View class displays all images to the screen
 class View(pyglet.window.Window):
@@ -26,6 +85,10 @@ class View(pyglet.window.Window):
         self.set_fullscreen(True)
         glEnable(GL_BLEND) # type: ignore
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+        self.buttons = []
+        start_game_button = Button(self.monitor_width * 2 / 3, self.monitor_height * 1 / 15, self.monitor_width / 10, self.monitor_height / 15, (0, 125, 0), "Start game")
+        self.buttons.append(start_game_button)
+        self.menu = True
         
         # Load images
         try:
@@ -102,119 +165,22 @@ class View(pyglet.window.Window):
 
     def on_draw(self):
         self.clear()
+        #draw background
         self.dark_wood_image.blit(0, 0)
-        for i in range(0, 8):
-            for j in range(0, 8):
-                if(((j % 2 == 0) and (i % 2 == 0)) or ((j % 2 == 1) and (i % 2 == 1))):
-                    self.light_wood_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
-                else:
-                    self.medium_wood_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
-        if(self.held_coords != None and self.mouse_held == True):
-            # Draw a filled rectangle (square)
-            x = (self.held_coords[0] - self.spacing) // self.square_width
-            y = (self.held_coords[1] - self.spacing) // self.square_width
-            size = self.square_width  # Size of the square
-
-            # Use pyglet.shapes.Rectangle to draw the square
-            square = pyglet.shapes.Rectangle(self.square_width*x + self.spacing, self.square_width*y + self.spacing, size, size, color=(int(0.0 * 255), int(0.0 * 255), int(0.0 * 255)))
-            square.opacity = int(0.2 * 255)
-            square.draw()
-            glEnable(GL_BLEND) # type: ignore
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
-        for i in range(8):
-            for j in range(8):
-                if(self.red_highlights[i][j] == True):
-
-                    # Draw a filled rectangle (square)
-                    x, y = self.square_width*j + self.spacing, self.square_width*i + self.spacing  # Position of the bottom-left corner
-                    size = self.square_width  # Size of the square
-
-                    # Use pyglet.shapes.Rectangle to draw the square
-                    square = pyglet.shapes.Rectangle(x, y, size, size, color=(int(1.0 * 255), int(0.0 * 255), int(0.0 * 255)))
-                    square.opacity = int(0.5 * 255)
-                    square.draw()
-                    glEnable(GL_BLEND) # type: ignore
-                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
-                if(self.highlights[i][j] == True):
-                    if(((j % 2 == 0) and (i % 2 == 0)) or ((j % 2 == 1) and (i % 2 == 1))):
-                        self.selected_light_wood_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
-                    else:
-                        self.selected_medium_wood_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
-                    piece = self.model.board[i][j]
-                    if(piece != 'S' and self.model.to_move == piece.get_color()):
-                        moves = piece.get_legal_moves()
-                        for rank in range(8):
-                            for file in range(8):
-                                if(moves[rank][file] == True):
-                                    circle = pyglet.shapes.Circle(self.square_width*file + self.spacing + 0.5 * self.square_width, self.square_width*rank + self.spacing + 0.5 * self.square_width, self.square_width / 4, color=(0, 0, 0, 160))
-                                    circle.draw()
-                                    glEnable(GL_BLEND) # type: ignore
-                                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+        #draw chess background
+        self.chess_background()
+        #draw held_highlights
+        self.move_highlight()
+        #draw red highlights
+        self.draw_red_highlights()
+        #draw piece positions
         self.draw_board()
-        if(self.model.promotion == True):
-            for i in range(8):
-                for j in range(8):
-                    piece = self.model.board[i][j]
-                    if(piece != 'S' and piece.piece_char() == 'P' and i == 7):
-                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*i + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
-                        square.opacity = int(1 * 255)
-                        square.draw()
-                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i-1) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
-                        square.opacity = int(1 * 255)
-                        square.draw()
-                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i-2) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
-                        square.opacity = int(1 * 255)
-                        square.draw()
-                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i-3) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
-                        square.opacity = int(1 * 255)
-                        square.draw()
-                        glEnable(GL_BLEND) # type: ignore
-                        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
-                        self.white_queen_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
-                        self.white_knight_image.blit(self.square_width*j + self.spacing, self.square_width*(i-1) + self.spacing)
-                        self.white_rook_image.blit(self.square_width*j + self.spacing, self.square_width*(i-2) + self.spacing)
-                        self.white_bishop_image.blit(self.square_width*j + self.spacing, self.square_width*(i-3) + self.spacing)
-                        break
-                    elif(piece != 'S' and piece.piece_char() == 'p' and i == 0):
-                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*i + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
-                        square.opacity = int(1 * 255)
-                        square.draw()
-                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i+1) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
-                        square.opacity = int(1 * 255)
-                        square.draw()
-                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i+2) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
-                        square.opacity = int(1 * 255)
-                        square.draw()
-                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i+3) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
-                        square.opacity = int(1 * 255)
-                        square.draw()
-                        glEnable(GL_BLEND) # type: ignore
-                        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
-                        self.black_queen_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
-                        self.black_knight_image.blit(self.square_width*j + self.spacing, self.square_width*(i+1) + self.spacing)
-                        self.black_rook_image.blit(self.square_width*j + self.spacing, self.square_width*(i+2) + self.spacing)
-                        self.black_bishop_image.blit(self.square_width*j + self.spacing, self.square_width*(i+3) + self.spacing)
-                        break
-        if(self.model.is_mate == True):
-            if(self.model.to_move == 'w'):
-                label = pyglet.text.Label(
-                    'Black Wins !',
-                    font_name='Times New Roman',
-                    font_size=72,
-                    x=self.monitor_width/2, y=self.monitor_height/2,
-                    anchor_x='center', anchor_y='center'
-                )
-            else:
-                label = pyglet.text.Label(
-                    'White Wins !',
-                    font_name='Times New Roman',
-                    font_size=72,
-                    x=self.monitor_width/2, y=self.monitor_height/2,
-                    anchor_x='center', anchor_y='center'
-                )
-            label.draw()
-            glEnable(GL_BLEND) # type: ignore
-            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+        #draw promotions
+        self.promotion_draw()
+        #check mate
+        self.check_mate()
+        if(self.menu == True):
+            self.menu_handler()
         return
     
     def draw_board(self):
@@ -253,7 +219,7 @@ class View(pyglet.window.Window):
                             self.white_king_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
                         case 'P':
                             self.white_pawn_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
-        if(self.held_piece != None):
+        if(self.held_piece != None and self.mouse_held == True):
             p = self.model.board[self.held_piece[0]][self.held_piece[1]]
             if((p != 'S') and self.held_coords != None and self.mouse_held == True):
                 p = p.piece_char()
@@ -305,7 +271,8 @@ class View(pyglet.window.Window):
                 for i in range(8):
                     for j in range(8):
                         if(self.highlights[i][j] == True and (i != int(y) or j != int(x))):
-                            self.model.move_piece(i, j, int(y), int(x))
+                            if(self.menu == False):
+                                self.model.move_piece(i, j, int(y), int(x))
                             self.highlights[i][j] = False
                             self.highlights[int(y)][int(x)] = True
                             break
@@ -319,6 +286,8 @@ class View(pyglet.window.Window):
         return
     
     def promotion_detection(self, x, y):
+        if(self.menu):
+            return
         if(x == None or y == None):
             return
         else:
@@ -367,9 +336,144 @@ class View(pyglet.window.Window):
         return
 
     def piece_held(self, x, y):
+        if(self.menu):
+            return
         x = (x - self.spacing) // self.square_width
         y = (y - self.spacing) // self.square_width
+        if(int(y) > 7 or int(x) > 7 or int(y) < 0 or int(x) < 0):
+            return
         self.held_piece = (int(y), int(x))
+    
+    def chess_background(self):
+        for i in range(0, 8):
+            for j in range(0, 8):
+                if(((j % 2 == 0) and (i % 2 == 0)) or ((j % 2 == 1) and (i % 2 == 1))):
+                    self.light_wood_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
+                else:
+                    self.medium_wood_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
+    
+    def move_highlight(self):
+        if(self.held_coords != None and self.mouse_held == True and self.held_piece != None and self.menu == False):
+            # Draw a filled rectangle (square)
+            x = (self.held_coords[0] - self.spacing) // self.square_width
+            y = (self.held_coords[1] - self.spacing) // self.square_width
+            size = self.square_width  # Size of the square
+
+            # Use pyglet.shapes.Rectangle to draw the square
+            square = pyglet.shapes.Rectangle(self.square_width*x + self.spacing, self.square_width*y + self.spacing, size, size, color=(int(0.0 * 255), int(0.0 * 255), int(0.0 * 255)))
+            square.opacity = int(0.2 * 255)
+            square.draw()
+            glEnable(GL_BLEND) # type: ignore
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+    
+    def draw_red_highlights(self):
+        for i in range(8):
+            for j in range(8):
+                if(self.red_highlights[i][j] == True):
+
+                    # Draw a filled rectangle (square)
+                    x, y = self.square_width*j + self.spacing, self.square_width*i + self.spacing  # Position of the bottom-left corner
+                    size = self.square_width  # Size of the square
+
+                    # Use pyglet.shapes.Rectangle to draw the square
+                    square = pyglet.shapes.Rectangle(x, y, size, size, color=(int(1.0 * 255), int(0.0 * 255), int(0.0 * 255)))
+                    square.opacity = int(0.5 * 255)
+                    square.draw()
+                    glEnable(GL_BLEND) # type: ignore
+                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+                if(self.highlights[i][j] == True):
+                    if(((j % 2 == 0) and (i % 2 == 0)) or ((j % 2 == 1) and (i % 2 == 1))):
+                        self.selected_light_wood_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
+                    else:
+                        self.selected_medium_wood_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
+                    piece = self.model.board[i][j]
+                    if(piece != 'S' and self.model.to_move == piece.get_color()):
+                        moves = piece.get_legal_moves()
+                        for rank in range(8):
+                            for file in range(8):
+                                if(moves[rank][file] == True):
+                                    circle = pyglet.shapes.Circle(self.square_width*file + self.spacing + 0.5 * self.square_width, self.square_width*rank + self.spacing + 0.5 * self.square_width, self.square_width / 4, color=(0, 0, 0, 160))
+                                    circle.draw()
+                                    glEnable(GL_BLEND) # type: ignore
+                                    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+    
+    def promotion_draw(self):
+        if(self.menu):
+            return
+        if(self.model.promotion == True):
+            for i in range(8):
+                for j in range(8):
+                    piece = self.model.board[i][j]
+                    if(piece != 'S' and piece.piece_char() == 'P' and i == 7):
+                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*i + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
+                        square.opacity = int(1 * 255)
+                        square.draw()
+                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i-1) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
+                        square.opacity = int(1 * 255)
+                        square.draw()
+                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i-2) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
+                        square.opacity = int(1 * 255)
+                        square.draw()
+                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i-3) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
+                        square.opacity = int(1 * 255)
+                        square.draw()
+                        glEnable(GL_BLEND) # type: ignore
+                        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+                        self.white_queen_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
+                        self.white_knight_image.blit(self.square_width*j + self.spacing, self.square_width*(i-1) + self.spacing)
+                        self.white_rook_image.blit(self.square_width*j + self.spacing, self.square_width*(i-2) + self.spacing)
+                        self.white_bishop_image.blit(self.square_width*j + self.spacing, self.square_width*(i-3) + self.spacing)
+                        break
+                    elif(piece != 'S' and piece.piece_char() == 'p' and i == 0):
+                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*i + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
+                        square.opacity = int(1 * 255)
+                        square.draw()
+                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i+1) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
+                        square.opacity = int(1 * 255)
+                        square.draw()
+                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i+2) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
+                        square.opacity = int(1 * 255)
+                        square.draw()
+                        square = pyglet.shapes.Rectangle(self.square_width*j + self.spacing, self.square_width*(i+3) + self.spacing, self.square_width, self.square_width, color=(int(1.0 * 255), int(1.0 * 255), int(1.0 * 255)))
+                        square.opacity = int(1 * 255)
+                        square.draw()
+                        glEnable(GL_BLEND) # type: ignore
+                        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+                        self.black_queen_image.blit(self.square_width*j + self.spacing, self.square_width*i + self.spacing)
+                        self.black_knight_image.blit(self.square_width*j + self.spacing, self.square_width*(i+1) + self.spacing)
+                        self.black_rook_image.blit(self.square_width*j + self.spacing, self.square_width*(i+2) + self.spacing)
+                        self.black_bishop_image.blit(self.square_width*j + self.spacing, self.square_width*(i+3) + self.spacing)
+                        break
+
+    def menu_handler(self):
+        for button in self.buttons:
+            button.draw()
+            if(button.message == "Start game" and button.pressed == True):
+                self.menu = False
+                return
+        return
+    
+    def check_mate(self):
+        if(self.model.is_mate == True):
+            if(self.model.to_move == 'w'):
+                label = pyglet.text.Label(
+                    'Black Wins !',
+                    font_name='Times New Roman',
+                    font_size=72,
+                    x=self.monitor_width/2, y=self.monitor_height/2,
+                    anchor_x='center', anchor_y='center'
+                )
+            else:
+                label = pyglet.text.Label(
+                    'White Wins !',
+                    font_name='Times New Roman',
+                    font_size=72,
+                    x=self.monitor_width/2, y=self.monitor_height/2,
+                    anchor_x='center', anchor_y='center'
+                )
+            label.draw()
+            glEnable(GL_BLEND) # type: ignore
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
 
 class Controller():
     def __init__(self, model, view):
@@ -401,6 +505,11 @@ class Controller():
             self.view.piece_held(x, y)
             self.view.held_coords = (int(x), int(y))
             self.mouse_pressed = True
+            for button in self.view.buttons:
+                if(button.is_mouse_over(int(x), int(y))):
+                    button.on_press()
+                else:
+                    button.on_release()
 
     def on_mouse_release(self, x, y, button, modifiers):
         # Handle mouse press event with debouncing
@@ -417,9 +526,17 @@ class Controller():
                     self.view.promotion_detection(x, y)
             self.view.mouse_held = False
             self.mouse_pressed = False
+            self.view.held_piece = None
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         self.view.held_coords = (int(x), int(y))
+        
+    def on_mouse_motion(self, x, y, dx, dy):
+        for button in self.view.buttons:
+            x = button.is_mouse_over(int(x), int(y))
+    
+    def update_model(self, model):
+        self.model = model
 
 class Model():
     def __init__(self):
@@ -4319,7 +4436,7 @@ def main():
     view = View(model, width=800, height=600, caption="Chess")
     controller = Controller(model, view)
 
-    # Schedule the update method of the controller to be called every 1/60 seconds
+    # Schedule the update method of the controller to be called every 1/240 seconds
     pyglet.clock.schedule_interval(controller.update, 1 / 240)
 
     # Push event handlers to the view's window
