@@ -449,6 +449,7 @@ class View(pyglet.window.Window):
         for button in self.buttons:
             button.draw()
             if(button.message == "Start game" and button.pressed == True):
+                self.model.reset_game()
                 self.menu = False
                 return
         return
@@ -457,7 +458,7 @@ class View(pyglet.window.Window):
         if(self.model.is_mate == True):
             if(self.model.to_move == 'w'):
                 label = pyglet.text.Label(
-                    'Black Wins !',
+                    'Black Wins!',
                     font_name='Times New Roman',
                     font_size=72,
                     x=self.monitor_width/2, y=self.monitor_height/2,
@@ -465,12 +466,34 @@ class View(pyglet.window.Window):
                 )
             else:
                 label = pyglet.text.Label(
-                    'White Wins !',
+                    'White Wins!',
                     font_name='Times New Roman',
                     font_size=72,
                     x=self.monitor_width/2, y=self.monitor_height/2,
                     anchor_x='center', anchor_y='center'
                 )
+            self.menu = True
+            label.draw()
+            glEnable(GL_BLEND) # type: ignore
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
+        if(self.model.is_stalemate == True):
+            if(self.model.to_move == 'w'):
+                label = pyglet.text.Label(
+                    'White is stalemated. Draw!',
+                    font_name='Times New Roman',
+                    font_size=72,
+                    x=self.monitor_width/2, y=self.monitor_height/2,
+                    anchor_x='center', anchor_y='center'
+                )
+            else:
+                label = pyglet.text.Label(
+                    'Black is stalemated. Draw!',
+                    font_name='Times New Roman',
+                    font_size=72,
+                    x=self.monitor_width/2, y=self.monitor_height/2,
+                    anchor_x='center', anchor_y='center'
+                )
+            self.menu = True
             label.draw()
             glEnable(GL_BLEND) # type: ignore
             glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA) # type: ignore
@@ -540,24 +563,7 @@ class Controller():
 
 class Model():
     def __init__(self):
-        self.board = [['S' for _ in range(8)] for _ in range(8)]
-        self.to_move = 'w'
-        self.layout = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
-        self.prevMove_rank = None
-        self.prevMove_file = None
-        self.checkers = None
-        self.in_check = False
-        self.double_move = False
-        self.promotion = False
-        self.white_king_rank = None
-        self.white_king_file = None
-        self.black_king_rank = None
-        self.black_king_file = None
-        self.white_vision = [[False for _ in range(8)] for _ in range(8)]
-        self.black_vision = [[False for _ in range(8)] for _ in range(8)]
-        self.is_mate = False
-        self.board_loader()
-        self.update_legal_moves()
+        self.reset_game()
         
     def update(self, view):
         self.view = view
@@ -623,7 +629,10 @@ class Model():
                         for File in range(8):
                             if(moves[Rank][File] == True):
                                 return
-        self.is_mate = True
+        if(self.in_check == True):
+            self.is_mate = True
+        else:
+            self.is_stalemate = True
     
     def move_piece(self, mover_rank, mover_file, move_to_rank, move_to_file):
         mover_piece = self.board[mover_rank][mover_file]
@@ -726,6 +735,27 @@ class Model():
                 self.board[rank][file] = White_King()
             case 'P':
                 self.board[rank][file] = White_Pawn()
+    
+    def reset_game(self):
+        self.board = [['S' for _ in range(8)] for _ in range(8)]
+        self.to_move = 'w'
+        self.layout = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+        self.prevMove_rank = None
+        self.prevMove_file = None
+        self.checkers = None
+        self.in_check = False
+        self.double_move = False
+        self.promotion = False
+        self.white_king_rank = None
+        self.white_king_file = None
+        self.black_king_rank = None
+        self.black_king_file = None
+        self.white_vision = [[False for _ in range(8)] for _ in range(8)]
+        self.black_vision = [[False for _ in range(8)] for _ in range(8)]
+        self.is_mate = False
+        self.is_stalemate = False
+        self.board_loader()
+        self.update_legal_moves()
 
 class Piece():
     def __init__(self):
