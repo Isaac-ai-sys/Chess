@@ -562,6 +562,57 @@ class Controller():
         self.model = model
 
 class Model():
+    class Graph:
+        def __init__(self, board, mover):
+            init_node = self.Node()
+            init_node.board = board
+            init_node.depth = 0
+            init_node.mover = mover
+            self.depth = 0
+            self.root_node = init_node
+        class Node:
+            def __init__(self):
+                self.board = [['S' for _ in range(8)] for _ in range(8)]
+                self.evaluation = 0.0
+                self.depth = 0
+                self.future_positions = []
+                self.mover = 'w'
+        
+        def create_new_position_node(self, node, board, depth, mover):
+            new_node = self.Node()
+            new_node.board = board
+            new_node.depth = depth
+            new_node.mover = mover
+            self.evaluate_position_node(new_node)
+            node.future_positions.append(new_node)
+        
+        def evaluate_position_node(self, node):
+            for rank in range(8):
+                for file in range(8):
+                    piece = node.board[rank][file]
+                    if(piece != 'S' and piece.piece_char() != 'k' and piece.piece_char() != 'K'):
+                        match piece.piece_char():
+                            case 'r':
+                                node.evaluation -= 5
+                            case 'n':
+                                node.evaluation -= 3
+                            case 'b':
+                                node.evaluation -= 3.25
+                            case 'q':
+                                node.evaluation -= 9
+                            case 'p':
+                                node.evaluation -= 1
+                            case 'R':
+                                node.evaluation += 5
+                            case 'N':
+                                node.evaluation += 3
+                            case 'B':
+                                node.evaluation += 3.25
+                            case 'Q':
+                                node.evaluation += 9
+                            case 'P':
+                                node.evaluation += 1
+            return
     def __init__(self):
         self.reset_game()
         
@@ -756,6 +807,8 @@ class Model():
         self.is_stalemate = False
         self.board_loader()
         self.update_legal_moves()
+        self.graph = self.Graph(self.board, self.to_move)
+        
 
 class Piece():
     def __init__(self):
